@@ -22,10 +22,15 @@ Created by NoiraFayn
 bl_info = {
     "name": "Addon Updater",
     "author": "NoiraFayn",
-    "version": (2, 2),
-    "blender": (4, 0, 0),
-    "description": "Safely update an in-dev addon: create zip, reinstall, enable",
-    "category": "Development",
+    "version": (2, 0),
+    "blender": (4, 4, 0),
+    "location": "",
+    "description": (
+        "Automatically updates an in-dev addon: creates the zip, uninstalls, installs, enables."
+    ),
+    "warning": "",
+    "doc_url": "",
+    "category": "3D View",
 }
 
 import bpy
@@ -35,8 +40,20 @@ from bpy.types import Operator, Panel
 
 
 # --------------------------------------------------
-# Utility Functions
+# FUNCTIONS
 # --------------------------------------------------
+
+def relative_to_absolute_path(relative_path):
+    absolute_path = bpy.path.abspath(relative_path)
+    normalized_path = os.path.normpath(absolute_path)
+    return r"{}".format(normalized_path.replace("\\", "/"))
+    
+
+def delete_file(file_path):
+    try:
+        os.remove(file_path)
+    except OSError as e:
+        print(f"Error: {e.filename} - {e.strerror}")
 
 def normalize_path(path):
     return os.path.normpath(bpy.path.abspath(path))
@@ -50,12 +67,37 @@ def create_addon_zip(folder_path, zip_path):
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, folder_path)
                 zipf.write(file_path, os.path.join(base_folder, rel_path))
+                
 
+def install_addon(addon_name, addon_filepath):
+    print("addon_filepath = " + addon_filepath)
+    if os.path.exists(addon_filepath):
 
+        addon_folder_path = bpy.utils.user_resource('SCRIPTS', path="addons")
+        addon_dir_path = os.path.join(addon_folder_path, addon_name)
+        
+        if os.path.exists(addon_dir_path) and os.path.isdir(addon_dir_path):
+            bpy.ops.preferences.addon_install(overwrite=True, target='DEFAULT', filepath=addon_filepath, filter_folder=True, filter_python=True, filter_glob='*.zip')
+        else:
+
+            if not os.path.exists(addon_folder_path):
+                os.makedirs(addon_folder_path)
+            
+            with zipfile.ZipFile(addon_filepath, 'r') as zip_ref:
+                zip_ref.extractall(addon_folder_path)
+
+            bpy.ops.preferences.addon_install(overwrite=True, target='DEFAULT', filepath=addon_filepath, filter_folder=True, filter_python=True, filter_glob='*.zip')
+            
+        print(f"Addon '{addon_name}' installed and enabled successfully.")
+    else:
+        print(f"Addon file '{addon_filepath}' does not exist.")
+        
+        
 def safe_disable_addon(addon_name):
     try:
         bpy.ops.preferences.addon_disable(module=addon_name)
     except Exception:
+        print(f"Failed to disable the addon '{addon_name}'")
         pass
 
 
@@ -63,68 +105,94 @@ def safe_remove_addon(addon_name):
     try:
         bpy.ops.preferences.addon_remove(module=addon_name)
     except Exception:
+        print(f"Failed to remove the addon '{addon_name}'")
         pass
 
 
+
+def enable_addon(addon_name):
+    bpy.ops.preferences.addon_enable(module=addon_name)
+
+def remove_addon(addon_name):
+    bpy.ops.preferences.addon_remove(module=addon_name)
+    
+def refresh_addons():
+    bpy.ops.preferences.addon_refresh()
+    
+def update_addon_name(self, context):
+    file_path = context.scene.str_addon_zip_path
+    if file_path:
+        file_name_without_extension = os.path.splitext(os.path.basename(file_path))[0]
+        self.str_addon_name = file_name_without_extension
+        
+
 # --------------------------------------------------
-# Operator
+# PROPERTY UPDATE
+# --------------------------------------------------
+
+def update_addon_path(self, context):
+    path = relative_to_absolute_path(self.str_addon_path)
+    if os.path.isdir(path):
+        name = os.path.basename(path)
+        self.str_addon_name = name
+        self.str_addon_zip_path = os.path.join(
+            os.path.dirname(path),
+            name + ".zip"
+        )
+
+
+def update_zip_path(self, context):
+    path = relative_to_absolute_path(self.str_addon_zip_path)
+    if path.lower().endswith(".zip"):
+        self.str_addon_name = os.path.splitext(os.path.basename(path))[0]
+
+        
+# --------------------------------------------------
+# OPERATOR
 # --------------------------------------------------
 
 class OBJECT_OT_noira_update_addon(Operator):
     bl_idname = "object.noira_update_addon"
     bl_label = "Update Addon"
-    bl_description = "Create zip, reinstall and enable addon safely"
+    bl_description = "Creates or Load an addon .zip file and install it"
 
     def execute(self, context):
 
         scene = context.scene
         addon_name = scene.str_addon_name
-        addon_folder = normalize_path(scene.str_addon_path)
-        addon_zip = normalize_path(scene.str_addon_zip_path)
+        addon_folder = relative_to_absolute_path(scene.str_addon_path)
+        addon_zip = relative_to_absolute_path(scene.str_addon_zip_path)
 
-        # -----------------------------
-        # 1️⃣ Create ZIP if requested
-        # -----------------------------
+        # Create ZIP if requested
         if scene.bool_update_zip:
 
             if not os.path.isdir(addon_folder):
                 self.report({'ERROR'}, "Addon folder path is invalid")
                 return {'CANCELLED'}
 
-            # Ensure the destination folder exists
             os.makedirs(os.path.dirname(addon_zip), exist_ok=True)
 
-            # Remove old ZIP if exists
             if os.path.exists(addon_zip):
                 os.remove(addon_zip)
 
             create_addon_zip(addon_folder, addon_zip)
 
-        # -----------------------------
-        # 2️⃣ ZIP must exist if not updated
-        # -----------------------------
         else:
             if not os.path.exists(addon_zip):
                 self.report({'ERROR'}, "Addon zip file not found")
                 return {'CANCELLED'}
 
-        # -----------------------------
-        # 3️⃣ Disable & remove old addon
-        # -----------------------------
+        # Disable & remove old addon
         safe_disable_addon(addon_name)
         safe_remove_addon(addon_name)
 
-        # -----------------------------
-        # 4️⃣ Install new addon
-        # -----------------------------
+        # Install new addon
         bpy.ops.preferences.addon_install(
             overwrite=True,
             filepath=addon_zip
         )
 
-        # -----------------------------
-        # 5️⃣ Enable addon
-        # -----------------------------
+        # Enable addon
         bpy.ops.preferences.addon_enable(module=addon_name)
 
         self.report({'INFO'}, f"Addon '{addon_name}' updated successfully")
@@ -132,12 +200,12 @@ class OBJECT_OT_noira_update_addon(Operator):
 
 
 # --------------------------------------------------
-# UI Panel
+# PANEL
 # --------------------------------------------------
 
 class VIEW3D_PT_noira_addon_updater(Panel):
-    bl_label = "Addon Updater"
     bl_idname = "VIEW3D_PT_noira_addon_updater"
+    bl_label = "Addon Updater"    
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "Addon Updater"
@@ -164,28 +232,7 @@ class VIEW3D_PT_noira_addon_updater(Panel):
 
 
 # --------------------------------------------------
-# Property Updates
-# --------------------------------------------------
-
-def update_addon_path(self, context):
-    path = normalize_path(self.str_addon_path)
-    if os.path.isdir(path):
-        name = os.path.basename(path)
-        self.str_addon_name = name
-        self.str_addon_zip_path = os.path.join(
-            os.path.dirname(path),
-            name + ".zip"
-        )
-
-
-def update_zip_path(self, context):
-    path = normalize_path(self.str_addon_zip_path)
-    if path.lower().endswith(".zip"):
-        self.str_addon_name = os.path.splitext(os.path.basename(path))[0]
-
-
-# --------------------------------------------------
-# Registration
+# REGISTER
 # --------------------------------------------------
 
 classes = (
