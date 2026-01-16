@@ -1,6 +1,6 @@
-# In development Blender addon updater for Blender 4.x
+# Blender addon updater for Blender 4.x and 5.x
 
-Add-on for Blender that automatically updates an addon in development.
+Add-on for Blender that automatically creates the zip file, updates/installs an addon in development (scripts you are working on).
 
 ## Features
 
@@ -22,7 +22,7 @@ The features are:
 * Copy the folder `blender_addon_updater`. Make sure this is the folder with the scripts under it (`blender_custom_addon\__init__.py` etc).
 * Paste the `blender_addon_updater` folder into your Blender addons folder. Default path:
 ```
-%APPDATA%\Blender Foundation\Blender\4.0\scripts\addons
+%APPDATA%\Blender Foundation\Blender\{version}\scripts\addons
 ```
 ### Blender Method
 
@@ -47,10 +47,3 @@ The features are:
 * In the addon panel, uncheck `Update zip`.
 * Click on the button next to`Addon .zip` and select the addon to update zip file (the .zip should contain a folder with scripts under it).
 * Click on `Update addon`: this automatically uninstalls, installs and activates your addon.
-
-
-
-
-
-
-
