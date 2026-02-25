@@ -299,9 +299,17 @@ class ADDONUPDATER_OT_update(Operator):
             return {'CANCELLED'}
 
         # Disable & remove old addon, even if the folder path has changed
-        addon_folder = get_addon_folder(addon_name)
-        if addon_folder:
+        disable_addon(addon_name)
+        remove_addon(addon_name)
+
+        # Disable & remove old addon, even if the folder path has changed
+        addon_folder_to_remove = get_addon_folder(addon_name)
+        if addon_folder_to_remove:
             safe_disable_addon(addon_name, report=self.report)
+
+            # # Remove addon handlers and keymaps
+            # remove_addon_handlers(addon_name)
+            # remove_addon_keymaps(addon_name)
 
             # Unregister all classes detected from that folder
             classes_to_unregister = get_addon_classes(addon_name)
@@ -378,8 +386,8 @@ class ADDONUPDATER_OT_uninstall(Operator):
         remove_addon(addon_name)
 
         # Disable & remove old addon, even if the folder path has changed
-        addon_folder = get_addon_folder(addon_name)
-        if addon_folder:
+        addon_folder_to_remove = get_addon_folder(addon_name)
+        if addon_folder_to_remove:
             safe_disable_addon(addon_name, report=self.report)
 
             # # Remove addon handlers and keymaps
