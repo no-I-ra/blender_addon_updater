@@ -22,7 +22,7 @@ Created by Studio Noira
 bl_info = {
     "name": "Addon Updater",
     "author": "Studio Noira",
-    "version": (2, 1, 0),
+    "version": (3, 0, 0),
     "blender": (4, 4, 0),
     "location": "View3D > Sidebar > Addon updater",
     "description": (
