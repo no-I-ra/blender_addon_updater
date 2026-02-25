@@ -12,6 +12,7 @@ This addon allows you to update an addon without needing to manually uninstall, 
 The features are:
 * Update an addon from its main folder (with scripts under it).
 * Update an addon from a .zip file.
+* Uninstall an addon
 
 ## Installing
 
