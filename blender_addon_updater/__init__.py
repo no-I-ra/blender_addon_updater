@@ -1,8 +1,8 @@
 '''
-Copyright (C) 2024 NoiraFayn
-noirafaynmodding@gmail.com
+Copyright (C) 2026 Studio Noira
+studionoira@gmail.com
 
-Created by NoiraFayn
+Created by Studio Noira
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,42 +21,33 @@ Created by NoiraFayn
 
 bl_info = {
     "name": "Addon Updater",
-    "author": "NoiraFayn",
+    "author": "Studio Noira",
     "version": (2, 0),
     "blender": (4, 4, 0),
-    "location": "",
+    "location": "View3D > Sidebar > Addon updater",
     "description": (
         "Automatically updates an in-dev addon: creates the zip, uninstalls, installs, enables."
     ),
     "warning": "",
     "doc_url": "",
-    "category": "3D View",
+    "category": "Studio Noira",
 }
 
 import bpy
 import os
 import zipfile
-from bpy.types import Operator, Panel
-
+from bpy.types import Operator, Panel, PropertyGroup
+from bpy.props import PointerProperty, BoolProperty, StringProperty
 
 # --------------------------------------------------
 # FUNCTIONS
 # --------------------------------------------------
-
+# region functions
 def relative_to_absolute_path(relative_path):
     absolute_path = bpy.path.abspath(relative_path)
     normalized_path = os.path.normpath(absolute_path)
     return r"{}".format(normalized_path.replace("\\", "/"))
     
-
-def delete_file(file_path):
-    try:
-        os.remove(file_path)
-    except OSError as e:
-        print(f"Error: {e.filename} - {e.strerror}")
-
-def normalize_path(path):
-    return os.path.normpath(bpy.path.abspath(path))
 
 
 def create_addon_zip(folder_path, zip_path):
@@ -67,31 +58,7 @@ def create_addon_zip(folder_path, zip_path):
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, folder_path)
                 zipf.write(file_path, os.path.join(base_folder, rel_path))
-                
 
-def install_addon(addon_name, addon_filepath):
-    print("addon_filepath = " + addon_filepath)
-    if os.path.exists(addon_filepath):
-
-        addon_folder_path = bpy.utils.user_resource('SCRIPTS', path="addons")
-        addon_dir_path = os.path.join(addon_folder_path, addon_name)
-        
-        if os.path.exists(addon_dir_path) and os.path.isdir(addon_dir_path):
-            bpy.ops.preferences.addon_install(overwrite=True, target='DEFAULT', filepath=addon_filepath, filter_folder=True, filter_python=True, filter_glob='*.zip')
-        else:
-
-            if not os.path.exists(addon_folder_path):
-                os.makedirs(addon_folder_path)
-            
-            with zipfile.ZipFile(addon_filepath, 'r') as zip_ref:
-                zip_ref.extractall(addon_folder_path)
-
-            bpy.ops.preferences.addon_install(overwrite=True, target='DEFAULT', filepath=addon_filepath, filter_folder=True, filter_python=True, filter_glob='*.zip')
-            
-        print(f"Addon '{addon_name}' installed and enabled successfully.")
-    else:
-        print(f"Addon file '{addon_filepath}' does not exist.")
-        
         
 def safe_disable_addon(addon_name):
     try:
@@ -125,10 +92,14 @@ def update_addon_name(self, context):
         file_name_without_extension = os.path.splitext(os.path.basename(file_path))[0]
         self.str_addon_name = file_name_without_extension
         
+# endregion
+
+
 
 # --------------------------------------------------
-# PROPERTY UPDATE
+# PROPERTIES
 # --------------------------------------------------
+# region properties
 
 def update_addon_path(self, context):
     path = relative_to_absolute_path(self.str_addon_path)
@@ -146,25 +117,55 @@ def update_zip_path(self, context):
     if path.lower().endswith(".zip"):
         self.str_addon_name = os.path.splitext(os.path.basename(path))[0]
 
-        
-# --------------------------------------------------
-# OPERATOR
-# --------------------------------------------------
 
-class OBJECT_OT_noira_update_addon(Operator):
-    bl_idname = "object.noira_update_addon"
+
+class ADDONUPDATER_PG_properties(PropertyGroup):
+
+    bool_update_zip: BoolProperty(
+        name="Update ZIP",
+        default=False
+    )
+
+    str_addon_path: StringProperty(
+        name="Addon Folder",
+        subtype='DIR_PATH',
+        update=update_addon_path
+    )
+
+    str_addon_zip_path: StringProperty(
+        name="Addon ZIP",
+        subtype='FILE_PATH',
+        update=update_zip_path
+    )
+
+    str_addon_name: StringProperty(
+        name="Addon Name"
+    )
+
+ # endregion
+
+
+       
+# --------------------------------------------------
+# OPERATORS
+# --------------------------------------------------
+# region operators
+class ADDONUPDATER_OT_update(Operator):
+    bl_idname = "addonupdater.update"
     bl_label = "Update Addon"
     bl_description = "Creates or Load an addon .zip file and install it"
 
     def execute(self, context):
 
-        scene = context.scene
-        addon_name = scene.str_addon_name
-        addon_folder = relative_to_absolute_path(scene.str_addon_path)
-        addon_zip = relative_to_absolute_path(scene.str_addon_zip_path)
+        props = context.scene.addon_updater
+        props.str_addon_path
+
+        addon_name = props.str_addon_name
+        addon_folder = relative_to_absolute_path(props.str_addon_path)
+        addon_zip = relative_to_absolute_path(props.str_addon_zip_path)
 
         # Create ZIP if requested
-        if scene.bool_update_zip:
+        if props.bool_update_zip:
 
             if not os.path.isdir(addon_folder):
                 self.report({'ERROR'}, "Addon folder path is invalid")
@@ -198,46 +199,56 @@ class OBJECT_OT_noira_update_addon(Operator):
         self.report({'INFO'}, f"Addon '{addon_name}' updated successfully")
         return {'FINISHED'}
 
+# endregion
+
+
 
 # --------------------------------------------------
 # PANEL
 # --------------------------------------------------
+# region panel
 
-class VIEW3D_PT_noira_addon_updater(Panel):
-    bl_idname = "VIEW3D_PT_noira_addon_updater"
+class ADDONUPDATER_PT_main(Panel):
+    bl_idname = "ADDONUPDATER_PT_main"
     bl_label = "Addon Updater"    
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Addon Updater"
+    bl_category = "Studio Noira"
 
     def draw(self, context):
         layout = self.layout
-        scene = context.scene
+        props = context.scene.addon_updater
+        props.str_addon_path
 
-        layout.prop(scene, "bool_update_zip")
+        layout.prop(props, "bool_update_zip")
 
-        if scene.bool_update_zip:
-            layout.prop(scene, "str_addon_path")
+        if props.bool_update_zip:
+            layout.prop(props, "str_addon_path")
             row = layout.row()
             row.enabled = False
-            row.prop(scene, "str_addon_zip_path")
+            row.prop(props, "str_addon_zip_path")
         else:
-            layout.prop(scene, "str_addon_zip_path")
+            layout.prop(props, "str_addon_zip_path")
 
         row = layout.row()
         row.enabled = False
-        row.prop(scene, "str_addon_name")
+        row.prop(props, "str_addon_name")
 
-        layout.operator("object.noira_update_addon", icon='FILE_REFRESH')
+        layout.operator("addonupdater.update", icon='FILE_REFRESH')
+
+# endregion
+
 
 
 # --------------------------------------------------
 # REGISTER
 # --------------------------------------------------
+# region register
 
 classes = (
-    OBJECT_OT_noira_update_addon,
-    VIEW3D_PT_noira_addon_updater,
+    ADDONUPDATER_PG_properties,
+    ADDONUPDATER_OT_update,
+    ADDONUPDATER_PT_main,
 )
 
 
@@ -245,37 +256,22 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.bool_update_zip = bpy.props.BoolProperty(
-        name="Update ZIP",
-        default=False
-    )
-
-    bpy.types.Scene.str_addon_path = bpy.props.StringProperty(
-        name="Addon Folder",
-        subtype='DIR_PATH',
-        update=update_addon_path
-    )
-
-    bpy.types.Scene.str_addon_zip_path = bpy.props.StringProperty(
-        name="Addon ZIP",
-        subtype='FILE_PATH',
-        update=update_zip_path
-    )
-
-    bpy.types.Scene.str_addon_name = bpy.props.StringProperty(
-        name="Addon Name"
-    )
+    bpy.types.Scene.addon_updater = PointerProperty(type=ADDONUPDATER_PG_properties)
 
 
 def unregister():
+
+    if hasattr(bpy.types.Scene, "addon_updater"):
+        del bpy.types.Scene.addon_updater
+
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 
-    del bpy.types.Scene.bool_update_zip
-    del bpy.types.Scene.str_addon_path
-    del bpy.types.Scene.str_addon_zip_path
-    del bpy.types.Scene.str_addon_name
+    
+   
 
 
 if __name__ == "__main__":
     register()
+
+# endregion
