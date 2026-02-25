@@ -22,9 +22,9 @@ Created by Studio Noira
 bl_info = {
     "name": "Addon Updater",
     "author": "Studio Noira",
-    "version": (3, 0, 0),
+    "version": (3, 1, 0),
     "blender": (4, 4, 0),
-    "location": "View3D > Sidebar > Addon updater",
+    "location": "View3D > Sidebar > Studio Noira > Addon updater",
     "description": (
         "Automatically updates an in-dev addon: creates the zip, uninstalls, installs, enables."
     ),
@@ -229,27 +229,26 @@ class ADDONUPDATER_PG_properties(PropertyGroup):
 
     bool_update_zip: BoolProperty(
         name="Update ZIP",
-        default=False
+        default=False,
+        description="Create the .zip from the addon source code folder."
     )
 
     str_addon_path: StringProperty(
         name="Addon Folder",
         subtype='DIR_PATH',
-        update=update_addon_path
+        update=update_addon_path,
+        description="The addon source code path."
     )
 
     str_addon_zip_path: StringProperty(
         name="Addon ZIP",
         subtype='FILE_PATH',
-        update=update_zip_path
+        update=update_zip_path,
+        description="The addon .zip file."
     )
 
     str_addon_name: StringProperty(
         name="Addon Name"
-    )
-
-    str_debug_class_name: StringProperty(
-        name="Class name"
     )
 
  # endregion
@@ -264,7 +263,7 @@ class ADDONUPDATER_PG_properties(PropertyGroup):
 class ADDONUPDATER_OT_update(Operator):
     bl_idname = "addonupdater.update"
     bl_label = "Update Addon"
-    bl_description = "Creates or Load an addon .zip file and install it"
+    bl_description = "Update/Install an addon from a .zip of from its source code."
     bl_options = {'REGISTER'}
 
     def execute(self, context):
@@ -367,7 +366,7 @@ class ADDONUPDATER_OT_update(Operator):
 class ADDONUPDATER_OT_uninstall(Operator):
     bl_idname = "addonupdater.uninstall"
     bl_label = "Uninstall Addon"
-    bl_description = "Uninstall the add, including unregister classes and delete the addon folder in Blender"
+    bl_description = "Uninstall and addon, including unregister classes and delete the addon files in Blender's appdata dir."
     bl_options = {'REGISTER'}
 
     def execute(self, context):
