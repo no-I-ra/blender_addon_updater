@@ -56,9 +56,23 @@ def relative_to_absolute_path(relative_path):
 
 
 def create_addon_zip(folder_path, zip_path):
+
+    excluded_dirs = {
+        ".git",
+        ".vs",
+        "__pycache__",
+    }
+
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         base_folder = os.path.basename(folder_path)
-        for root, _, files in os.walk(folder_path):
+        for root, dirs, files in os.walk(folder_path):
+
+            dirs[:] = [
+                directory
+                for directory in dirs
+                if directory not in excluded_dirs
+            ]
+
             for file in files:
                 file_path = os.path.join(root, file)
                 rel_path = os.path.relpath(file_path, folder_path)
